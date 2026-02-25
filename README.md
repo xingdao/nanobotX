@@ -18,6 +18,7 @@
 
 ## 📢 News
 
+- **2026-02-25** 🚀 Major architecture updates: Hook system, rule engine, tool logging, and enhanced tools.
 - **2026-02-01** 🎉 nanobot launched! Welcome to try 🐈 nanobot!
 
 ## Key Features of nanobot:
@@ -29,6 +30,8 @@
 ⚡️ **Lightning Fast**: Minimal footprint means faster startup, lower resource usage, and quicker iterations.
 
 💎 **Easy-to-Use**: One-click to depoly and you're ready to go.
+
+🔧 **Extensible Architecture**: Hook system, rule engine, and comprehensive tool logging for advanced customization.
 
 ## 🏗️ Architecture
 
@@ -361,10 +364,12 @@ nanobot/
 ├── agent/          # 🧠 Core agent logic
 │   ├── loop.py     #    Agent loop (LLM ↔ tool execution)
 │   ├── context.py  #    Prompt builder
+│   ├── hooks.py    #    Lifecycle hook system
+│   ├── rules.py    #    Rule engine for agent behavior
 │   ├── memory.py   #    Persistent memory
 │   ├── skills.py   #    Skills loader
 │   ├── subagent.py #    Background task execution
-│   └── tools/      #    Built-in tools (incl. spawn)
+│   └── tools/      #    Built-in tools (logger, skill, cron, etc.)
 ├── skills/         # 🎯 Bundled skills (github, weather, tmux...)
 ├── channels/       # 📱 WhatsApp integration
 ├── bus/            # 🚌 Message routing
