@@ -1,16 +1,37 @@
 <div align="center">
-  <img src="nanobot_logo.png" alt="nanobot" width="500">
-  <h1>nanobot: Ultra-Lightweight Personal AI Assistant</h1>
+  <h1>nanobotX: Ultra-Lightweight Personal AI Assistant</h1>
   <p>
-    <a href="https://pypi.org/project/nanobot-ai/"><img src="https://img.shields.io/pypi/v/nanobot-ai" alt="PyPI"></a>
-    <a href="https://pepy.tech/project/nanobot-ai"><img src="https://static.pepy.tech/badge/nanobot-ai" alt="Downloads"></a>
     <img src="https://img.shields.io/badge/python-≥3.11-blue" alt="Python">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-    <a href="./COMMUNICATION.md"><img src="https://img.shields.io/badge/Feishu-Group-E9DBFC?style=flat&logo=feishu&logoColor=white" alt="Feishu"></a>
-    <a href="./COMMUNICATION.md"><img src="https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white" alt="WeChat"></a>
-    <a href="https://discord.gg/MnCvHqpUGB"><img src="https://img.shields.io/badge/Discord-Community-5865F2?style=flat&logo=discord&logoColor=white" alt="Discord"></a>
   </p>
 </div>
+
+## why branch
+
+  保持简洁,不构建复杂,类似rag记忆系统,和代码流程
+  放开权限,不限制LLM发挥,让docker+vps+nanobotX自由发挥
+  助理定位,专业的事情让更专业的工具来做
+
+  Keep it simple, avoid building complexity, including memory systems and code flow.
+  Give it free rein, don't restrict the LLM, let Docker + VPS + nanobotX self-service.
+  Establish an assistant role, let the more specialized LLM handle the professional tasks.
+
+## 开发路线图
+
+  - [X] hook 管控 Loop
+  - [X] 总结和计划 流程
+  - [X] 增加tool日志
+  - [X] 封装skill
+  - [] 显现默认行为 包括skill 和提示词
+  - [] 完善测试框架
+
+
+## 其他
+
+  欢迎fork, 暂时不会合并pr, 如果nanobot持续完善,看情况本项目会取消和封存
+  
+
+## nanobotX fork from nanobot
 
 🐈 **nanobot** is an **ultra-lightweight** personal AI assistant inspired by [Clawdbot](https://github.com/openclaw/openclaw) 
 
@@ -67,21 +88,9 @@
 **Install from source** (latest features, recommended for development)
 
 ```bash
-git clone https://github.com/HKUDS/nanobot.git
+git clone git@github.com:xingdao/nanobotX.git
 cd nanobot
 pip install -e .
-```
-
-**Install with [uv](https://github.com/astral-sh/uv)** (stable, fast)
-
-```bash
-uv tool install nanobot-ai
-```
-
-**Install from PyPI** (stable)
-
-```bash
-pip install nanobot-ai
 ```
 
 ## 🚀 Quick Start
@@ -174,7 +183,6 @@ Talk to your nanobot through Telegram or WhatsApp — anytime, anywhere.
 | Channel | Setup |
 |---------|-------|
 | **Telegram** | Easy (just a token) |
-| **WhatsApp** | Medium (scan QR) |
 
 <details>
 <summary><b>Telegram</b> (Recommended)</summary>
@@ -251,16 +259,7 @@ Config file: `~/.nanobot/config.json`
 
 ### Providers
 
-> [!NOTE]
-> Groq provides free voice transcription via Whisper. If configured, Telegram voice messages will be automatically transcribed.
-
-| Provider | Purpose | Get API Key |
-|----------|---------|-------------|
-| `openrouter` | LLM (recommended, access to all models) | [openrouter.ai](https://openrouter.ai) |
-| `anthropic` | LLM (Claude direct) | [console.anthropic.com](https://console.anthropic.com) |
-| `openai` | LLM (GPT direct) | [platform.openai.com](https://platform.openai.com) |
-| `groq` | LLM + **Voice transcription** (Whisper) | [console.groq.com](https://console.groq.com) |
-| `gemini` | LLM (Gemini direct) | [aistudio.google.com](https://aistudio.google.com) |
+Provider by liteLLM, conifg like  https://www.litellm.ai/
 
 
 <details>
@@ -383,39 +382,16 @@ nanobot/
 
 ## 🤝 Contribute & Roadmap
 
-PRs welcome! The codebase is intentionally small and readable. 🤗
 
-**Roadmap** — Pick an item and [open a PR](https://github.com/HKUDS/nanobot/pulls)!
-
-- [x] **Voice Transcription** — Support for Groq Whisper (Issue #13)
-- [ ] **Multi-modal** — See and hear (images, voice, video)
-- [ ] **Long-term memory** — Never forget important context
-- [ ] **Better reasoning** — Multi-step planning and reflection
-- [ ] **More integrations** — Discord, Slack, email, calendar
-- [ ] **Self-improvement** — Learn from feedback and mistakes
-
-### Contributors
-
-<a href="https://github.com/HKUDS/nanobot/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=HKUDS/nanobot" />
-</a>
-
-
-## ⭐ Star History
-
-<div align="center">
-  <a href="https://star-history.com/#HKUDS/nanobot&Date">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=HKUDS/nanobot&type=Date&theme=dark" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=HKUDS/nanobot&type=Date" />
-      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=HKUDS/nanobot&type=Date" style="border-radius: 15px; box-shadow: 0 0 30px rgba(0, 217, 255, 0.3);" />
-    </picture>
-  </a>
-</div>
+- [-] ~~Voice Transcription — Support for Groq Whisper (Issue #13)~~
+- [-] **Multi-modal** — See and hear (images, voice, video)
+- [-] **Long-term memory** — Never forget important context
+- [x] **Better reasoning** — Multi-step planning and reflection
+- [-] ~~More integrations — Discord, Slack, email, calendar~~ 
+- [x] **Self-improvement** — Learn from feedback and mistakes
 
 <p align="center">
-  <em> Thanks for visiting ✨ nanobot!</em><br><br>
-  <img src="https://visitor-badge.laobi.icu/badge?page_id=HKUDS.nanobot&style=for-the-badge&color=00d4ff" alt="Views">
+  <em> All Thanks for  nanobot!</em><br><br>
 </p>
 
 
