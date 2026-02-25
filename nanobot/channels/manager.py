@@ -56,7 +56,7 @@ class ChannelManager:
             except ImportError as e:
                 logger.warning(f"WhatsApp channel not available: {e}")
     
-    async def start_all(self) -> None:
+    async def start_all(self, agent) -> None:
         """Start WhatsApp channel and the outbound dispatcher."""
         if not self.channels:
             logger.warning("No channels enabled")
@@ -69,6 +69,7 @@ class ChannelManager:
         tasks = []
         for name, channel in self.channels.items():
             logger.info(f"Starting {name} channel...")
+            channel.agent = agent
             tasks.append(asyncio.create_task(channel.start()))
         
         # Wait for all to complete (they should run forever)

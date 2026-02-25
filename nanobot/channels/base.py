@@ -26,6 +26,7 @@ class BaseChannel(ABC):
             bus: The message bus for communication.
         """
         self.config = config
+        self.agent = None
         self.bus = bus
         self._running = False
     
@@ -101,9 +102,6 @@ class BaseChannel(ABC):
             media: Optional list of media URLs.
             metadata: Optional channel-specific metadata.
         """
-        if not self.is_allowed(sender_id):
-            return
-        
         msg = InboundMessage(
             channel=self.name,
             sender_id=str(sender_id),

@@ -2,15 +2,18 @@
 
 import asyncio
 import re
-
+import copy
+import time
 from loguru import logger
 from telegram import Update
+from telegram.constants import ChatAction
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
 from nanobot.bus.events import OutboundMessage
 from nanobot.bus.queue import MessageBus
 from nanobot.channels.base import BaseChannel
 from nanobot.config.schema import TelegramConfig
+from nanobot.utils.deploy import Deploy
 
 
 def _markdown_to_telegram_html(text: str) -> str:
@@ -118,7 +121,10 @@ class TelegramChannel(BaseChannel):
         
         # Add /start command handler
         from telegram.ext import CommandHandler
-        self._app.add_handler(CommandHandler("start", self._on_start))
+        self._app.add_handler(CommandHandler("start", self._on_command))
+        self._app.add_handler(CommandHandler("restart", self._on_command))
+        self._app.add_handler(CommandHandler("config", self._on_command))
+        self._app.add_handler(CommandHandler("abort", self._on_command))
         
         logger.info("Starting Telegram bot (polling mode)...")
         
@@ -160,8 +166,48 @@ class TelegramChannel(BaseChannel):
         try:
             # chat_id should be the Telegram chat ID (integer)
             chat_id = int(msg.chat_id)
+            if not msg.content.strip():
+                await self._app.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
+                return
+            if len(msg.content) > 4096:
+                media_path = f'/tmp/{int(time.time())}.txt'
+                with open(media_path,'w', encoding='utf-8') as fd:
+                    fd.write(msg.content)
+                msg.media= [media_path]
+                msg.content = " Message is too long, write txt"
+            # Send media files first if present
+            if msg.media:
+                from pathlib import Path
+                for media_path in msg.media:
+                    path = Path(media_path)
+                    if not path.exists():
+                        logger.warning(f"Media file not found: {media_path}")
+                        continue
+                    try:
+                        ext = path.suffix.lower()
+                        with open(path, "rb") as f:
+                            if ext == ".gif":
+                                await self._app.bot.send_animation(chat_id=chat_id, animation=f)
+                            elif ext in (".jpg", ".jpeg", ".png", ".webp"):
+                                await self._app.bot.send_photo(chat_id=chat_id, photo=f)
+                            elif ext in (".mp4", ".mov", ".avi", ".mkv"):
+                                await self._app.bot.send_video(chat_id=chat_id, video=f)
+                            elif ext in (".mp3", ".ogg", ".wav", ".m4a"):
+                                await self._app.bot.send_audio(chat_id=chat_id, audio=f)
+                            else:
+                                await self._app.bot.send_document(chat_id=chat_id, document=f)
+                        logger.debug(f"Sent media: {path.name}")
+                    except Exception as e:
+                        logger.error(f"Failed to send media {media_path}: {e}")
+            # Send text content if present
+            if not msg.content:
+                return
             # Convert markdown to Telegram HTML
             html_content = _markdown_to_telegram_html(msg.content)
+            # Add collapsible section if present (Telegram-specific)
+            if msg.metadata.get("collapsible"):
+                collapsible_html = _markdown_to_telegram_html(msg.metadata["collapsible"])
+                html_content += f"\n\n<blockquote expandable>{collapsible_html}</blockquote>"
             await self._app.bot.send_message(
                 chat_id=chat_id,
                 text=html_content,
@@ -180,15 +226,69 @@ class TelegramChannel(BaseChannel):
             except Exception as e2:
                 logger.error(f"Error sending Telegram message: {e2}")
     
-    async def _on_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle /start command."""
+    async def _on_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /start, /restart, /config, /abort command."""
         if not update.message or not update.effective_user:
             return
-        
+        message = update.message
         user = update.effective_user
-        await update.message.reply_text(
-            f"👋 Hi {user.first_name}! I'm nanobot.\n\n"
-            "Send me a message and I'll respond!"
+        chat_id = message.chat_id
+        sender_id = str(user.id)
+        if user.username:
+            sender_id = f"{sender_id}|{user.username}"
+        if not self.is_allowed(sender_id):
+            logger.info(f'{sender_id} not in allow_from')
+            return
+        if message.text == '/abort':
+            self.agent.abort = True
+            await update.message.reply_text("已经终止, 下一条非命令消息会恢复运行")
+            return
+        # 检测连续3条未消费则回复
+        if self.bus.inbound_size >= 3:
+            queue = copy.deepcopy(list(self.bus.inbound._queue))  # 深复制内部队列
+            consecutive_count = 0
+
+            for msg in queue:
+                if msg.sender_id == sender_id and msg.chat_id == str(chat_id):
+                    consecutive_count += 1
+
+                    if consecutive_count == 3:
+                        await update.message.reply_text(
+                            "agent挂了, 如果重启发送/start*2,如果重置发送/restart*2"
+                            )
+                    if consecutive_count >= 5 and message.text == '/start':
+                        deploy = Deploy()
+                        cmd = "docker restart nanobot-gateway-1"
+                        await update.message.reply_text(f"正在执行: {cmd}")
+                        result = await deploy.execute(cmd)
+                        await update.message.reply_text(f"结果:\n{result}")
+                        return
+                    if consecutive_count >= 5 and message.text == '/restart':
+                        deploy = Deploy()
+                        commands = [
+                            "cd /root/.local/share/uv/tools/nanobot-ai/lib/python3.12/site-packages/nanobot && git restore --staged .",
+                            "git apply --unsafe-paths -p1 --directory=/root/.local/share/uv/tools/nanobot-ai/lib/python3.12/site-packages/ /root/.nanobot/unstaged_changes.patch",
+                            "docker restart nanobot-gateway-1"
+                        ]
+                        for cmd in commands:
+                            await update.message.reply_text(f"正在执行: {cmd}")
+                            result = await deploy.execute(cmd)
+                            await update.message.reply_text(f"结果:\n{result}")
+                        return
+
+        await self._handle_message(
+            sender_id=sender_id,
+            chat_id=str(chat_id),
+            content=message.text,
+            media=[],
+            metadata={
+                "command": True,
+                "message_id": message.message_id,
+                "user_id": user.id,
+                "username": user.username,
+                "first_name": user.first_name,
+                "is_group": message.chat.type != "private"
+            }
         )
     
     async def _on_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -204,9 +304,11 @@ class TelegramChannel(BaseChannel):
         sender_id = str(user.id)
         if user.username:
             sender_id = f"{sender_id}|{user.username}"
-        
+        if not self.is_allowed(sender_id):
+            logger.info(f'{sender_id} not in allow_from')
+            return
         # Store chat_id for replies
-        self._chat_ids[sender_id] = chat_id
+        # self._chat_ids[sender_id] = chat_id
         
         # Build content from text and/or media
         content_parts = []
@@ -273,6 +375,11 @@ class TelegramChannel(BaseChannel):
         
         logger.debug(f"Telegram message from {sender_id}: {content[:50]}...")
         
+        # Show typing indicator as soon as we get the message
+        try:
+            await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
+        except Exception as e:
+            logger.debug(f"Failed to send typing indicator: {e}")
         # Forward to the message bus
         await self._handle_message(
             sender_id=sender_id,
