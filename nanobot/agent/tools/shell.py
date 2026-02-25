@@ -14,7 +14,7 @@ class ExecTool(Tool):
     
     def __init__(
         self,
-        timeout: int = 60,
+        timeout: int = 90,
         working_dir: str | None = None,
         deny_patterns: list[str] | None = None,
         allow_patterns: list[str] | None = None,
@@ -41,7 +41,11 @@ class ExecTool(Tool):
     
     @property
     def description(self) -> str:
-        return "Execute a shell command and return its output. Use with caution."
+        return "Execute a shell command and return its output. Use with caution." \
+            "- VERY IMPORTANT: You MUST avoid using search commands like `find` and `grep`. Instead use `rg` to search. " \
+            "- You MUST avoid read tools like `cat`, `head`, `tail`, and use `rg` to read files." \
+            "- If you _still_ need to run `grep` STOP. " \
+            "- ALWAYS USE ripgrep at `rg` first"
     
     @property
     def parameters(self) -> dict[str, Any]:
@@ -72,6 +76,7 @@ class ExecTool(Tool):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=cwd,
+                env=kwargs.get('env')
             )
             
             try:

@@ -45,11 +45,13 @@ class SpawnTool(Tool):
             "properties": {
                 "task": {
                     "type": "string",
-                    "description": "The task for the subagent to complete",
+                    "description": "Task description in natural language. For complex tasks, use clear sentences. Avoid JSON or code blocks. maxLength 300" ,
+                    "maxLength": 500
                 },
                 "label": {
                     "type": "string",
-                    "description": "Optional short label for the task (for display)",
+                    "description": "Optional short label (max 100 chars). Will be auto-generated from task if not provided. maxLength 50",
+                    "maxLength": 200
                 },
             },
             "required": ["task"],

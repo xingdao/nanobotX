@@ -99,24 +99,29 @@ class WebFetchTool(Tool):
         "type": "object",
         "properties": {
             "url": {"type": "string", "description": "URL to fetch"},
+            "save_path": {"type": "string", "description": "Absolute path to save the content (required)"},
             "extractMode": {"type": "string", "enum": ["markdown", "text"], "default": "markdown"},
             "maxChars": {"type": "integer", "minimum": 100}
         },
-        "required": ["url"]
+        "required": ["url", "save_path"]
     }
     
     def __init__(self, max_chars: int = 50000):
         self.max_chars = max_chars
     
-    async def execute(self, url: str, extractMode: str = "markdown", maxChars: int | None = None, **kwargs: Any) -> str:
+    async def execute(self, url: str, save_path: str, extractMode: str = "markdown", maxChars: int | None = None, **kwargs: Any) -> str:
         from readability import Document
 
         max_chars = maxChars or self.max_chars
 
+        # Validate save_path is absolute
+        if not os.path.isabs(save_path):
+            return f"Error: save_path must be absolute path, got '{save_path}'"
+
         # Validate URL before fetching
         is_valid, error_msg = _validate_url(url)
         if not is_valid:
-            return json.dumps({"error": f"URL validation failed: {error_msg}", "url": url})
+            return f"Error: URL validation failed: {error_msg}, url={url}"
 
         try:
             async with httpx.AsyncClient(
@@ -145,10 +150,18 @@ class WebFetchTool(Tool):
             if truncated:
                 text = text[:max_chars]
             
-            return json.dumps({"url": url, "finalUrl": str(r.url), "status": r.status_code,
-                              "extractor": extractor, "truncated": truncated, "length": len(text), "text": text})
+            # Save content to file
+            try:
+                os.makedirs(os.path.dirname(save_path), exist_ok=True)
+                with open(save_path, 'w', encoding='utf-8') as f:
+                    f.write(text)
+            except Exception as e:
+                return f"Error: Failed to save file to {save_path}: {e}"
+            
+            # Return success message
+            return f"Success path={save_path}, len={len(text)}"
         except Exception as e:
-            return json.dumps({"error": str(e), "url": url})
+            return f"Error: {e}, url={url}"
     
     def _to_markdown(self, html: str) -> str:
         """Convert HTML to markdown."""
