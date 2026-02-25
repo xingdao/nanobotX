@@ -2,6 +2,7 @@
 
 import base64
 import mimetypes
+import platform
 from pathlib import Path
 from typing import Any
 
@@ -62,18 +63,31 @@ class ContextBuilder:
         if skills_summary:
             parts.append(f"""# Skills
 
-The following skills extend your capabilities. To use a skill, read its SKILL.md file using the read_file tool.
-Skills with available="false" need dependencies installed first - you can try installing them with apt/brew.
+The following skills extend your capabilities. To use a skill, read its SKILL.md file using the read_skill tool not read_file tool.
+Skills with available="false" need dependencies installed first - you can try installing them with apt or pip.
 
 {skills_summary}""")
-        
         return "\n\n---\n\n".join(parts)
     
+    def _get_runtime_environment_summary(self) -> str:
+        """Get runtime environment information."""
+        system = platform.system()
+        system_map = {"Darwin": "MacOS", "Windows": "Windows", "Linux": "Linux"}
+        system_label = system_map.get(system, system)
+        release = platform.release()
+        machine = platform.machine()
+        python_version = platform.python_version()
+        node = platform.node()
+        return (
+            f"Runtime environment: OS {system_label} {release} ({machine}), "
+            f"Python {python_version}, Hostname {node}."
+        )
     def _get_identity(self) -> str:
         """Get the core identity section."""
         from datetime import datetime
         now = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
         workspace_path = str(self.workspace.expanduser().resolve())
+        runtime_summary = self._get_runtime_environment_summary()
         
         return f"""# nanobot 🐈
 
@@ -87,6 +101,9 @@ You are nanobot, a helpful AI assistant. You have access to tools that allow you
 ## Current Time
 {now}
 
+## Runtime Environment
+{runtime_summary}
+
 ## Workspace
 Your workspace is at: {workspace_path}
 - Memory files: {workspace_path}/memory/MEMORY.md
@@ -94,7 +111,7 @@ Your workspace is at: {workspace_path}
 - Custom skills: {workspace_path}/skills/{{skill-name}}/SKILL.md
 
 IMPORTANT: When responding to direct questions or conversations, reply directly with your text response.
-Only use the 'message' tool when you need to send a message to a specific chat channel (like WhatsApp).
+Only use the 'message' tool when you need to send a cron message to a specific chat channel (like tg) or media file.
 For normal conversation, just respond with text - do not call the message tool.
 
 Always be helpful, accurate, and concise. When using tools, explain what you're doing.
@@ -112,6 +129,17 @@ When remembering something, write to {workspace_path}/memory/MEMORY.md"""
         
         return "\n\n".join(parts) if parts else ""
     
+    def get_summary_context(self):
+        file_path = self.workspace / 'SUMMARY_SYS.md'
+        if file_path.exists():
+            content = file_path.read_text(encoding="utf-8")
+            return f"## SUMMARY\n\n{content}"
+
+    def get_user_summary_context(self):
+        file_path = self.workspace / 'SUMMARY.md'
+        if file_path.exists():
+            content = file_path.read_text(encoding="utf-8")
+            return f"## SUMMARY\n\n{content}"
     def build_messages(
         self,
         history: list[dict[str, Any]],

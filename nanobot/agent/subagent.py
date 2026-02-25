@@ -12,10 +12,10 @@ from nanobot.bus.events import InboundMessage
 from nanobot.bus.queue import MessageBus
 from nanobot.providers.base import LLMProvider
 from nanobot.agent.tools.registry import ToolRegistry
-from nanobot.agent.tools.filesystem import ReadFileTool, WriteFileTool, ListDirTool
+from nanobot.agent.tools.filesystem import ReadFileTool, WriteFileTool, GlobTool
 from nanobot.agent.tools.shell import ExecTool
 from nanobot.agent.tools.web import WebSearchTool, WebFetchTool
-
+from nanobot.config.schema import ExecToolConfig
 
 class SubagentManager:
     """
@@ -35,7 +35,7 @@ class SubagentManager:
         brave_api_key: str | None = None,
         exec_config: "ExecToolConfig | None" = None,
     ):
-        from nanobot.config.schema import ExecToolConfig
+        
         self.provider = provider
         self.workspace = workspace
         self.bus = bus
@@ -98,13 +98,13 @@ class SubagentManager:
             tools = ToolRegistry()
             tools.register(ReadFileTool())
             tools.register(WriteFileTool())
-            tools.register(ListDirTool())
+            tools.register(GlobTool())
             tools.register(ExecTool(
                 working_dir=str(self.workspace),
                 timeout=self.exec_config.timeout,
                 restrict_to_workspace=self.exec_config.restrict_to_workspace,
             ))
-            tools.register(WebSearchTool(api_key=self.brave_api_key))
+            # tools.register(WebSearchTool(api_key=self.brave_api_key))
             tools.register(WebFetchTool())
             
             # Build messages with subagent-specific prompt
@@ -208,32 +208,23 @@ Summarize this naturally for the user. Keep it brief (1-2 sentences). Do not men
         """Build a focused system prompt for the subagent."""
         return f"""# Subagent
 
-You are a subagent spawned by the main agent to complete a specific task.
+Given the user's message, you should use the tools available to complete the task. 
+Do what has been asked; nothing more, nothing less. 
+When you complete the task simply respond with a detailed writeup.
 
 ## Your Task
 {task}
 
-## Rules
-1. Stay focused - complete only the assigned task, nothing else
-2. Your final response will be reported back to the main agent
-3. Do not initiate conversations or take on side tasks
-4. Be concise but informative in your findings
-
-## What You Can Do
-- Read and write files in the workspace
-- Execute shell commands
-- Search the web and fetch web pages
+## Notice
 - Complete the task thoroughly
-
-## What You Cannot Do
-- Send messages directly to users (no message tool available)
-- Spawn other subagents
-- Access the main agent's conversation history
+- NEVER Spawn other subagents
+- NEVER create files unless they're absolutely necessary for achieving your goal. ALWAYS prefer editing an existing file to creating a new one.
+- NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the Task.
 
 ## Workspace
 Your workspace is at: {self.workspace}
 
-When you have completed the task, provide a clear summary of your findings or actions."""
+When you complete the task simply respond with a detailed writeup."""
     
     def get_running_count(self) -> int:
         """Return the number of currently running subagents."""
