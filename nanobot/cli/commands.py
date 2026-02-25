@@ -194,7 +194,9 @@ def gateway(
         api_base=api_base,
         default_model=config.agents.defaults.model
     )
-    
+    # Create cron service
+    cron_store_path = get_data_dir() / "cron" / "jobs.json"
+    cron = CronService(cron_store_path)
     # Create agent
     agent = AgentLoop(
         bus=bus,
@@ -204,9 +206,11 @@ def gateway(
         max_iterations=config.agents.defaults.max_tool_iterations,
         brave_api_key=config.tools.web.search.api_key or None,
         exec_config=config.tools.exec,
+        cron_service=cron,
+        tool_logging_config=config.tools.logging,
     )
     
-    # Create cron service
+    
     async def on_cron_job(job: CronJob) -> str | None:
         """Execute a cron job through the agent."""
         response = await agent.process_direct(
@@ -222,18 +226,24 @@ def gateway(
                 content=response or ""
             ))
         return response
-    
-    cron_store_path = get_data_dir() / "cron" / "jobs.json"
-    cron = CronService(cron_store_path, on_job=on_cron_job)
+    cron.on_job = on_cron_job
+
     
     # Create heartbeat service
     async def on_heartbeat(prompt: str) -> str:
         """Execute heartbeat through the agent."""
         return await agent.process_direct(prompt, session_key="heartbeat")
     
+    async def on_heartbeat_notify(response: str) -> None:
+        from nanobot.bus.events import OutboundMessage
+        await bus.publish_outbound(OutboundMessage(channel='telegram', chat_id='453318383', content=response))
+
     heartbeat = HeartbeatService(
         workspace=config.workspace_path,
-        on_heartbeat=on_heartbeat,
+        provider=provider,
+        model=model,
+        on_execute=on_heartbeat,
+        on_notify=on_heartbeat_notify,
         interval_s=30 * 60,  # 30 minutes
         enabled=True
     )
@@ -258,7 +268,7 @@ def gateway(
             await heartbeat.start()
             await asyncio.gather(
                 agent.run(),
-                channels.start_all(),
+                channels.start_all(agent),
             )
         except KeyboardInterrupt:
             console.print("\nShutting down...")
@@ -312,6 +322,7 @@ def agent(
         workspace=config.workspace_path,
         brave_api_key=config.tools.web.search.api_key or None,
         exec_config=config.tools.exec,
+        tool_logging_config=config.tools.logging,
     )
     
     if message:
@@ -468,16 +479,19 @@ app.add_typer(cron_app, name="cron")
 
 @cron_app.command("list")
 def cron_list(
-    all: bool = typer.Option(False, "--all", "-a", help="Include disabled jobs"),
+    enabled_only: bool = typer.Option(False, "--enabled-only", "-e", help="Show only enabled jobs"),
 ):
-    """List scheduled jobs."""
+    """List scheduled jobs.
+
+    By default shows all jobs (both enabled and disabled).
+    Use --enabled-only to show only enabled jobs."""
     from nanobot.config.loader import get_data_dir
     from nanobot.cron.service import CronService
-    
+
     store_path = get_data_dir() / "cron" / "jobs.json"
     service = CronService(store_path)
-    
-    jobs = service.list_jobs(include_disabled=all)
+
+    jobs = service.list_jobs(include_disabled=not enabled_only)
     
     if not jobs:
         console.print("No scheduled jobs.")

@@ -1,6 +1,7 @@
 """Session management for conversation history."""
 
 import json
+import shutil
 from pathlib import Path
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -109,7 +110,7 @@ class SessionManager:
             metadata = {}
             created_at = None
             
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if not line:
@@ -137,7 +138,7 @@ class SessionManager:
         """Save a session to disk."""
         path = self._get_session_path(session.key)
         
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             # Write metadata first
             metadata_line = {
                 "_type": "metadata",
@@ -149,7 +150,7 @@ class SessionManager:
             
             # Write messages
             for msg in session.messages:
-                f.write(json.dumps(msg) + "\n")
+                f.write(json.dumps(msg, ensure_ascii=False) + "\n")
         
         self._cache[session.key] = session
     
@@ -172,7 +173,39 @@ class SessionManager:
             path.unlink()
             return True
         return False
-    
+
+    def rename_with_timestamp(self, key: str) -> str | None:
+        """
+        Rename the session file with a timestamp suffix.
+
+        Args:
+            key: Session key.
+
+        Returns:
+            New file path if renamed, None if file doesn't exist.
+        """
+        path = self._get_session_path(key)
+        if not path.exists():
+            return None
+
+        # Generate timestamp suffix
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        # Extract stem and suffix
+        stem = path.stem
+        suffix = path.suffix
+        # New filename: stem-$timestamp.$suffix
+        new_name = f"{stem}-{timestamp}{suffix}"
+        new_path = path.parent / new_name
+
+        # Move file
+        shutil.move(str(path), str(new_path))
+
+        # Remove from cache
+        self._cache.pop(key, None)
+
+        logger.info(f"Renamed session file: {path.name} -> {new_path.name}")
+        return str(new_path)
+
     def list_sessions(self) -> list[dict[str, Any]]:
         """
         List all sessions.

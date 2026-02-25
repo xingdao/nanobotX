@@ -46,7 +46,7 @@ class LLMProvider(ABC):
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
         max_tokens: int = 4096,
-        temperature: float = 0.7,
+        temperature: float = 0.0,
     ) -> LLMResponse:
         """
         Send a chat completion request.
