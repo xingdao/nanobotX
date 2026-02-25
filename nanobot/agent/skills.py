@@ -21,7 +21,7 @@ class SkillsLoader:
     def __init__(self, workspace: Path, builtin_skills_dir: Path | None = None):
         self.workspace = workspace
         self.workspace_skills = workspace / "skills"
-        self.builtin_skills = builtin_skills_dir or BUILTIN_SKILLS_DIR
+        self.builtin_skills = None
     
     def list_skills(self, filter_unavailable: bool = True) -> list[dict[str, str]]:
         """
@@ -50,10 +50,13 @@ class SkillsLoader:
                     skill_file = skill_dir / "SKILL.md"
                     if skill_file.exists() and not any(s["name"] == skill_dir.name for s in skills):
                         skills.append({"name": skill_dir.name, "path": str(skill_file), "source": "builtin"})
-        
+        # Filter by hidden
+        skills = [s for s in skills
+                  if not self._is_skill_hidden(s["name"])]
         # Filter by requirements
         if filter_unavailable:
-            return [s for s in skills if self._check_requirements(self._get_skill_meta(s["name"]))]
+            return [s for s in skills \
+                    if not self._get_missing_requirements(self._get_skill_meta(s["name"]))]
         return skills
     
     def load_skill(self, name: str) -> str | None:
@@ -121,24 +124,65 @@ class SkillsLoader:
             path = s["path"]
             desc = escape_xml(self._get_skill_description(s["name"]))
             skill_meta = self._get_skill_meta(s["name"])
-            available = self._check_requirements(skill_meta)
+            missing = self._get_missing_requirements(skill_meta)
             
-            lines.append(f"  <skill available=\"{str(available).lower()}\">")
+            lines.append(f"  <skill available=\"{str(not missing).lower()}\">")
             lines.append(f"    <name>{name}</name>")
             lines.append(f"    <description>{desc}</description>")
-            lines.append(f"    <location>{path}</location>")
+            # lines.append(f"    <location>{path}</location>")
             
             # Show missing requirements for unavailable skills
-            if not available:
-                missing = self._get_missing_requirements(skill_meta)
-                if missing:
-                    lines.append(f"    <requires>{escape_xml(missing)}</requires>")
+            if missing:
+                lines.append(f"    <requires>{escape_xml(missing)}</requires>")
             
             lines.append(f"  </skill>")
         lines.append("</skills>")
         
         return "\n".join(lines)
-    
+
+    def load_env(self, name) -> dict[str, str]:
+        """Load environment variables from .env file in project root.
+
+        Returns:
+            Dictionary of env variables from .env file.
+        """
+        # Check workspace, built-in not .env, skip
+        env_path = self.workspace_skills / name / ".env"
+        if not env_path.exists():
+            return {}
+        env_vars = {}
+        # Look for .env in workspace and current working directory
+        try:
+            content = env_path.read_text(encoding="utf-8")
+            for line in content.splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                # Simple parsing: KEY=VALUE
+                if "=" in line:
+                    key, value = line.split("=", 1)
+                    key = key.strip()
+                    value = value.strip()
+                    # Remove quotes
+                    if (value.startswith('"') and value.endswith('"')) or (
+                        value.startswith("'") and value.endswith("'")
+                    ):
+                        value = value[1:-1]
+                    env_vars[key] = value
+        except Exception as e:
+            print(f'skill._load_env_file error {e}')
+        return env_vars
+
+    def _get_env_value(self, key: str) -> str | None:
+        """Get environment variable value from os.environ or .env file."""
+        # First check os.environ (highest priority)
+        value = os.environ.get(key)
+        if value is not None:
+            return value
+        # Then check .env file
+        env_vars = self._load_env_file()
+        return env_vars.get(key)
+
     def _get_missing_requirements(self, skill_meta: dict) -> str:
         """Get a description of missing requirements."""
         missing = []
@@ -147,8 +191,8 @@ class SkillsLoader:
             if not shutil.which(b):
                 missing.append(f"CLI: {b}")
         for env in requires.get("env", []):
-            if not os.environ.get(env):
-                missing.append(f"ENV: {env}")
+            if not (os.environ.get(env) or skill_meta.get('env',{}).get(env)):
+                return False
         return ", ".join(missing)
     
     def _get_skill_description(self, name: str) -> str:
@@ -181,15 +225,25 @@ class SkillsLoader:
             if not shutil.which(b):
                 return False
         for env in requires.get("env", []):
-            if not os.environ.get(env):
+            if not (os.environ.get(env) or skill_meta.get('env',{}).get(env)):
                 return False
         return True
     
     def _get_skill_meta(self, name: str) -> dict:
         """Get nanobot metadata for a skill (cached in frontmatter)."""
         meta = self.get_skill_metadata(name) or {}
-        return self._parse_nanobot_metadata(meta.get("metadata", ""))
+        metadata = self._parse_nanobot_metadata(meta.get("metadata", ""))
+        metadata['env'] = self.load_env(name) or {}
+        return metadata
     
+    def _is_skill_hidden(self, name: str) -> bool:
+        """Check if a skill is marked as hidden=true."""
+        meta = self.get_skill_metadata(name)
+        if not meta:
+            return False
+        nanobot_meta = self._parse_nanobot_metadata(meta.get("metadata", ""))
+        return nanobot_meta.get("hidden", False) is True
+
     def get_always_skills(self) -> list[str]:
         """Get skills marked as always=true that meet requirements."""
         result = []
