@@ -33,9 +33,10 @@ class SpawnTool(Tool):
     @property
     def description(self) -> str:
         return (
-            "Spawn a subagent to handle a task in the background. "
-            "Use this for complex or time-consuming tasks that can run independently. "
-            "The subagent will complete the task and report back when done."
+            "Spawn a subagent for a task. Modes:\n"
+            "- Default: background execution, reports back when done\n"
+            "- wait=true: sync mode, returns result directly\n"
+            "- read_only=true: exploration only, no modifications"
         )
     
     @property
@@ -53,15 +54,27 @@ class SpawnTool(Tool):
                     "description": "Optional short label (max 100 chars). Will be auto-generated from task if not provided. maxLength 50",
                     "maxLength": 200
                 },
+                "wait": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Wait for completion and return result directly (sync mode)"
+                },
+                "read_only": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Read-only exploration mode: no file modifications or shell commands"
+                },
             },
             "required": ["task"],
         }
     
-    async def execute(self, task: str, label: str | None = None, **kwargs: Any) -> str:
+    async def execute(self, task: str, label: str | None = None, wait: bool = False, read_only: bool = False, **kwargs: Any) -> str:
         """Spawn a subagent to execute the given task."""
         return await self._manager.spawn(
             task=task,
             label=label,
             origin_channel=self._origin_channel,
             origin_chat_id=self._origin_chat_id,
+            wait=wait,
+            read_only=read_only,
         )
