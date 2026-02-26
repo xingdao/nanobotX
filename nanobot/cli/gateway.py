@@ -27,34 +27,6 @@ def _create_provider(config):
     )
 
 
-def _create_cron_service(config, agent, bus):
-    """Create and configure cron service."""
-    from nanobot.config.loader import get_data_dir
-    from nanobot.cron.service import CronService
-    from nanobot.cron.types import CronJob
-    
-    cron_store_path = get_data_dir() / "cron" / "jobs.json"
-    cron = CronService(cron_store_path)
-    
-    async def on_cron_job(job: CronJob) -> str | None:
-        """Execute a cron job through the agent."""
-        response = await agent.process_direct(
-            job.payload.message,
-            session_key=f"cron:{job.id}"
-        )
-        if job.payload.deliver and job.payload.to:
-            from nanobot.bus.events import OutboundMessage
-            await bus.publish_outbound(OutboundMessage(
-                channel=job.payload.channel or "whatsapp",
-                chat_id=job.payload.to,
-                content=response or ""
-            ))
-        return response
-    
-    cron.on_job = on_cron_job
-    return cron
-
-
 def _create_heartbeat(config, provider, model, agent, bus):
     """Create and configure heartbeat service."""
     from nanobot.heartbeat.service import HeartbeatService
@@ -110,6 +82,8 @@ def gateway(
     from nanobot.agent.loop import AgentLoop
     from nanobot.channels.manager import ChannelManager
     from nanobot.cron.service import CronService
+    from nanobot.cron.types import CronJob
+
     
     if verbose:
         import logging
@@ -135,10 +109,22 @@ def gateway(
         cron_service=cron,
         tool_logging_config=config.tools.logging,
     )
-    
-    cron.on_job = lambda job: agent.process_direct(
-        job.payload.message, session_key=f"cron:{job.id}"
-    )
+    async def on_cron_job(job: CronJob) -> str | None:
+        """Execute a cron job through the agent."""
+        response = await agent.process_direct(
+            job.payload.message,
+            session_key=f"cron:{job.id}"
+        )
+        if job.payload.deliver and job.payload.to:
+            from nanobot.bus.events import OutboundMessage
+            await bus.publish_outbound(OutboundMessage(
+                channel=job.payload.channel or "whatsapp",
+                chat_id=job.payload.to,
+                content=response or ""
+            ))
+        return response
+
+    cron.on_job = on_cron_job
     
     heartbeat = _create_heartbeat(config, provider, model, agent, bus)
     channels = ChannelManager(config, bus)
