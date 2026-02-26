@@ -22,8 +22,8 @@
   - [X] 总结和计划 流程
   - [X] 增加tool日志
   - [X] 封装skill
-  - [] 显现默认行为 包括skill 和提示词
-  - [] 完善测试框架
+  - [ ] 显现默认行为 包括skill 和提示词
+  - [ ] 完善测试框架
 
 
 ## 其他
@@ -275,9 +275,6 @@ Provider by liteLLM, conifg like  https://www.litellm.ai/
   "providers": {
     "openrouter": {
       "apiKey": "sk-or-v1-xxx"
-    },
-    "groq": {
-      "apiKey": "gsk_xxx"
     }
   },
   "channels": {
@@ -383,7 +380,6 @@ nanobot/
 ## 🤝 Contribute & Roadmap
 
 
-- [-] ~~Voice Transcription — Support for Groq Whisper (Issue #13)~~
 - [-] **Multi-modal** — See and hear (images, voice, video)
 - [-] **Long-term memory** — Never forget important context
 - [x] **Better reasoning** — Multi-step planning and reflection
