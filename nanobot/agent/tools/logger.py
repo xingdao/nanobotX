@@ -55,7 +55,7 @@ class ToolLogger:
         self.sessions_dir = workspace.parent / "sessions"
         self.sessions_dir.mkdir(parents=True, exist_ok=True)
 
-    def _sanitize_parameters(self, tool_name: str, params: dict[str, Any]) -> dict[str, Any]:
+    def _sanitize_parameters(self, params: dict[str, Any]) -> dict[str, Any]:
         """
         Sanitize sensitive parameters to prevent leaks.
 
@@ -143,12 +143,35 @@ class ToolLogger:
 
         log_file = self._get_log_file_path(channel, chat_id)
         try:
-            # Truncate result if too long
-            if len(usage.result) > self.config.max_result_length:
-                usage.result = usage.result[:self.config.max_result_length] + \
-                f"... {len(usage.result) - self.config.max_result_length}[truncated]"
+            # Sanitize parameters for privacy
+            sanitized_params = self._sanitize_parameters(usage.parameters)
 
-            record = usage.to_dict()
+            # Truncate parameter values to 500, keep keys intact
+            truncated_params = {}
+            for key, value in sanitized_params.items():
+                if isinstance(value, str) and len(value) > 500:
+                    truncated_params[key] = value[:500] + "..."
+                else:
+                    truncated_params[key] = value
+
+            # Truncate result if too long
+            result = usage.result
+            if len(result) > self.config.max_result_length:
+                result = result[:self.config.max_result_length] + \
+                    f"... {len(result) - self.config.max_result_length}[truncated]"
+
+            # Build record with truncated data
+            record = {
+                "tool_name": usage.tool_name,
+                "parameters": truncated_params,
+                "result": result,
+                "timestamp": usage.timestamp.isoformat(),
+                "session_key": usage.session_key,
+                "duration_ms": usage.duration_ms,
+                "success": usage.success,
+                "error": usage.error,
+                "metadata": usage.metadata,
+            }
             line = json.dumps(record, ensure_ascii=False)
 
             # Async file write
@@ -170,10 +193,17 @@ class ToolLogger:
         Returns:
             Formatted notification message
         """
-        # Sanitize parameters for display
-        params_display = json.dumps(usage.parameters, ensure_ascii=False)
-        if len(params_display) > 200:
-            params_display = params_display[:200] + "..."
+        # Sanitize parameters for privacy
+        sanitized_params = self._sanitize_parameters(usage.parameters)
+
+        # Truncate parameter values, keep keys intact
+        truncated_params = {}
+        for key, value in sanitized_params.items():
+            if isinstance(value, str) and len(value) > 100:
+                truncated_params[key] = value[:100] + "..."
+            else:
+                truncated_params[key] = value
+        params_display = json.dumps(truncated_params, ensure_ascii=False)
 
         status_emoji = "✅" if usage.success else "❌"
         result_preview = usage.result
