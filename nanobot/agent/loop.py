@@ -14,7 +14,7 @@ from nanobot.agent.context import ContextBuilder
 from nanobot.agent.tools.registry import ToolRegistry
 from nanobot.agent.tools.filesystem import ReadFileTool, WriteFileTool, EditFileTool, GlobTool
 from nanobot.agent.tools.shell import ExecTool
-from nanobot.agent.tools.web import WebSearchTool, WebFetchTool
+from nanobot.agent.tools.web import WebFetchTool
 from nanobot.agent.tools.message import MessageTool
 from nanobot.agent.tools.spawn import SpawnTool
 from nanobot.agent.tools.skill import ReadSkill, RunSkill
@@ -48,7 +48,6 @@ class AgentLoop:
         workspace: Path,
         model: str | None = None,
         max_iterations: int = 20,
-        brave_api_key: str | None = None,
         exec_config: "ExecToolConfig | None" = None,
         tool_logging_config: "ToolLoggingConfig | None" = None,
         cron_service: "CronService | None" = None,
@@ -59,7 +58,6 @@ class AgentLoop:
         self.workspace = workspace
         self.model = model or provider.get_default_model()
         self.max_iterations = max_iterations
-        self.brave_api_key = brave_api_key
         self.exec_config = exec_config or ExecToolConfig()
         self.cron_service = cron_service
         self.tool_logging_config = tool_logging_config or ToolLoggingConfig()
@@ -77,7 +75,6 @@ class AgentLoop:
             workspace=workspace,
             bus=bus,
             model=self.model,
-            brave_api_key=brave_api_key,
             exec_config=self.exec_config,
         )
 
@@ -105,7 +102,6 @@ class AgentLoop:
         ))
         
         # Web tools
-        # self.tools.register(WebSearchTool(api_key=self.brave_api_key))
         self.tools.register(WebFetchTool())
         
         # Message tool

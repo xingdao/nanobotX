@@ -14,7 +14,7 @@ from nanobot.providers.base import LLMProvider
 from nanobot.agent.tools.registry import ToolRegistry
 from nanobot.agent.tools.filesystem import ReadFileTool, WriteFileTool, GlobTool
 from nanobot.agent.tools.shell import ExecTool
-from nanobot.agent.tools.web import WebSearchTool, WebFetchTool
+from nanobot.agent.tools.web import WebFetchTool
 from nanobot.config.schema import ExecToolConfig
 
 class SubagentManager:
@@ -32,7 +32,6 @@ class SubagentManager:
         workspace: Path,
         bus: MessageBus,
         model: str | None = None,
-        brave_api_key: str | None = None,
         exec_config: "ExecToolConfig | None" = None,
     ):
         
@@ -40,7 +39,6 @@ class SubagentManager:
         self.workspace = workspace
         self.bus = bus
         self.model = model or provider.get_default_model()
-        self.brave_api_key = brave_api_key
         self.exec_config = exec_config or ExecToolConfig()
         self._running_tasks: dict[str, asyncio.Task[None]] = {}
     
@@ -104,7 +102,6 @@ class SubagentManager:
                 timeout=self.exec_config.timeout,
                 restrict_to_workspace=self.exec_config.restrict_to_workspace,
             ))
-            # tools.register(WebSearchTool(api_key=self.brave_api_key))
             tools.register(WebFetchTool())
             
             # Build messages with subagent-specific prompt

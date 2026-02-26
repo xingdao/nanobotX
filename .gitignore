@@ -13,3 +13,5 @@ docs/
 *.pyz
 *.pywz
 *.pyzz
+AGENTS.md
+CLAUDE.md

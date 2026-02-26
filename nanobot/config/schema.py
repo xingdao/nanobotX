@@ -69,17 +69,6 @@ class GatewayConfig(BaseModel):
     heartbeat: HeartbeatConfig = Field(default_factory=HeartbeatConfig)
 
 
-class WebSearchConfig(BaseModel):
-    """Web search tool configuration."""
-    api_key: str = ""  # Brave Search API key
-    max_results: int = 5
-
-
-class WebToolsConfig(BaseModel):
-    """Web tools configuration."""
-    search: WebSearchConfig = Field(default_factory=WebSearchConfig)
-
-
 class ExecToolConfig(BaseModel):
     """Shell exec tool configuration."""
     timeout: int = 60
@@ -102,9 +91,8 @@ class ToolLoggingConfig(BaseModel):
 
 class ToolsConfig(BaseModel):
     """Tools configuration."""
-    web: WebToolsConfig = Field(default_factory=WebToolsConfig)
     exec: ExecToolConfig = Field(default_factory=ExecToolConfig)
-    logging: ToolLoggingConfig = Field(default_factory=ToolLoggingConfig)  # Tool logging config
+    logging: ToolLoggingConfig = Field(default_factory=ToolLoggingConfig)
 
 
 class Config(BaseSettings):
