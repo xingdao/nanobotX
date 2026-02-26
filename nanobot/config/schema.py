@@ -23,6 +23,8 @@ class ChannelsConfig(BaseModel):
     """Configuration for chat channels."""
     whatsapp: WhatsAppConfig = Field(default_factory=WhatsAppConfig)
     telegram: TelegramConfig = Field(default_factory=TelegramConfig)
+    notify_channel: str = "telegram"
+    notify_chat_id: str = ""
 
 
 class AgentDefaults(BaseModel):

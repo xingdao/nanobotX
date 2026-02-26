@@ -66,8 +66,8 @@ def _create_heartbeat(config, provider, model, agent, bus):
     async def on_heartbeat_notify(response: str) -> None:
         from nanobot.bus.events import OutboundMessage
         await bus.publish_outbound(OutboundMessage(
-            channel='telegram',
-            chat_id='453318383',
+            channel=config.channels.notify_channel,
+            chat_id=config.channels.notify_chat_id,
             content=response
         ))
 
