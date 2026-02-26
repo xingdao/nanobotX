@@ -110,10 +110,8 @@ nanobot onboard
 
 ```json
 {
-  "providers": {
-    "openrouter": {
-      "apiKey": "sk-or-v1-xxx"
-    }
+  "provider": {
+    "apiKey": "sk-or-v1-xxx"
   },
   "agents": {
     "defaults": {
@@ -153,11 +151,9 @@ vllm serve meta-llama/Llama-3.1-8B-Instruct --port 8000
 
 ```json
 {
-  "providers": {
-    "vllm": {
-      "apiKey": "dummy",
-      "apiBase": "http://localhost:8000/v1"
-    }
+  "provider": {
+    "apiKey": "dummy",
+    "apiBase": "http://localhost:8000/v1"
   },
   "agents": {
     "defaults": {
@@ -272,10 +268,8 @@ Provider by liteLLM, conifg like  https://www.litellm.ai/
       "model": "anthropic/claude-opus-4-5"
     }
   },
-  "providers": {
-    "openrouter": {
-      "apiKey": "sk-or-v1-xxx"
-    }
+  "provider": {
+    "apiKey": "sk-or-v1-xxx"
   },
   "channels": {
     "telegram": {

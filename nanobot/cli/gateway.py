@@ -12,14 +12,12 @@ def _create_provider(config):
     """Create LLM provider from config."""
     from nanobot.providers.litellm_provider import LiteLLMProvider
     
-    api_key = config.get_api_key()
-    api_base = config.get_api_base()
-    model = config.agents.defaults.model
-    is_bedrock = model.startswith("bedrock/")
+    api_key = config.provider.api_key
+    api_base = config.provider.api_base
 
-    if not api_key and not is_bedrock:
+    if not api_key:
         console.print("[red]Error: No API key configured.[/red]")
-        console.print("Set one in ~/.nanobot/config.json under providers.openrouter.apiKey")
+        console.print("Set one in ~/.nanobot/config.json under provider.apiKey")
         raise typer.Exit(1)
     
     return LiteLLMProvider(
