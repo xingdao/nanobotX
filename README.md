@@ -8,13 +8,13 @@
 
 ## why branch
 
-  保持简洁,不构建复杂,类似rag记忆系统,和代码流程
-  放开权限,不限制LLM发挥,让docker+vps+nanobotX自由发挥
-  助理定位,专业的事情让更专业的工具来做
-
-  Keep it simple, avoid building complexity, including memory systems and code flow.
-  Give it free rein, don't restrict the LLM, let Docker + VPS + nanobotX self-service.
-  Establish an assistant role, let the more specialized LLM handle the professional tasks.
+    保持简洁,不构建复杂,类似rag记忆系统,和代码流程
+    放开权限,不限制LLM发挥,让docker+vps+nanobotX自由发挥
+    助理定位,专业的事情让更专业的工具来做
+ 
+    Keep it simple, avoid building complexity, including memory systems and code flow.
+    Give it free rein, don't restrict the LLM, let Docker + VPS + nanobotX self-service.
+    Establish an assistant role, let the more specialized LLM handle the professional tasks.
 
 ## 开发路线图
 
@@ -60,29 +60,6 @@
   <img src="nanobot_arch.png" alt="nanobot architecture" width="800">
 </p>
 
-## ✨ Features
-
-<table align="center">
-  <tr align="center">
-    <th><p align="center">📈 24/7 Real-Time Market Analysis</p></th>
-    <th><p align="center">🚀 Full-Stack Software Engineer</p></th>
-    <th><p align="center">📅 Smart Daily Routine Manager</p></th>
-    <th><p align="center">📚 Personal Knowledge Assistant</p></th>
-  </tr>
-  <tr>
-    <td align="center"><p align="center"><img src="case/search.gif" width="180" height="400"></p></td>
-    <td align="center"><p align="center"><img src="case/code.gif" width="180" height="400"></p></td>
-    <td align="center"><p align="center"><img src="case/scedule.gif" width="180" height="400"></p></td>
-    <td align="center"><p align="center"><img src="case/memory.gif" width="180" height="400"></p></td>
-  </tr>
-  <tr>
-    <td align="center">Discovery • Insights • Trends</td>
-    <td align="center">Develop • Deploy • Scale</td>
-    <td align="center">Schedule • Automate • Organize</td>
-    <td align="center">Learn • Memory • Reasoning</td>
-  </tr>
-</table>
-
 ## 📦 Install
 
 **Install from source** (latest features, recommended for development)
@@ -97,7 +74,7 @@ pip install -e .
 
 > [!TIP]
 > Set your API key in `~/.nanobot/config.json`.
-> Get API keys: [OpenRouter](https://openrouter.ai/keys) (LLM) · [Brave Search](https://brave.com/search/api/) (optional, for web search)
+> Get API keys: [OpenRouter](https://openrouter.ai/keys) (LLM)
 > You can also change the model to `minimax/minimax-m2` for lower cost.
 
 **1. Initialize**
@@ -117,13 +94,6 @@ nanobot onboard
     "defaults": {
       "model": "anthropic/claude-opus-4-5"
     }
-  },
-  "tools": {
-    "web": {
-      "search": {
-        "apiKey": "BSA-xxx"
-      }
-    }
   }
 }
 ```
@@ -136,41 +106,6 @@ nanobot agent -m "What is 2+2?"
 ```
 
 That's it! You have a working AI assistant in 2 minutes.
-
-## 🖥️ Local Models (vLLM)
-
-Run nanobot with your own local models using vLLM or any OpenAI-compatible server.
-
-**1. Start your vLLM server**
-
-```bash
-vllm serve meta-llama/Llama-3.1-8B-Instruct --port 8000
-```
-
-**2. Configure** (`~/.nanobot/config.json`)
-
-```json
-{
-  "provider": {
-    "apiKey": "dummy",
-    "apiBase": "http://localhost:8000/v1"
-  },
-  "agents": {
-    "defaults": {
-      "model": "meta-llama/Llama-3.1-8B-Instruct"
-    }
-  }
-}
-```
-
-**3. Chat**
-
-```bash
-nanobot agent -m "Hello from my local LLM!"
-```
-
-> [!TIP]
-> The `apiKey` can be any non-empty string for local servers that don't require authentication.
 
 ## 💬 Chat Apps
 
@@ -212,43 +147,6 @@ nanobot gateway
 
 </details>
 
-<details>
-<summary><b>WhatsApp</b></summary>
-
-Requires **Node.js ≥18**.
-
-**1. Link device**
-
-```bash
-nanobot channels login
-# Scan QR with WhatsApp → Settings → Linked Devices
-```
-
-**2. Configure**
-
-```json
-{
-  "channels": {
-    "whatsapp": {
-      "enabled": true,
-      "allowFrom": ["+1234567890"]
-    }
-  }
-}
-```
-
-**3. Run** (two terminals)
-
-```bash
-# Terminal 1
-nanobot channels login
-
-# Terminal 2
-nanobot gateway
-```
-
-</details>
-
 ## ⚙️ Configuration
 
 Config file: `~/.nanobot/config.json`
@@ -280,13 +178,6 @@ Provider by liteLLM, conifg like  https://www.litellm.ai/
     "whatsapp": {
       "enabled": false
     }
-  },
-  "tools": {
-    "web": {
-      "search": {
-        "apiKey": "BSA..."
-      }
-    }
   }
 }
 ```
@@ -302,7 +193,6 @@ Provider by liteLLM, conifg like  https://www.litellm.ai/
 | `nanobot agent` | Interactive chat mode |
 | `nanobot gateway` | Start the gateway |
 | `nanobot status` | Show status |
-| `nanobot channels login` | Link WhatsApp (scan QR) |
 | `nanobot channels status` | Show channel status |
 
 <details>
@@ -381,7 +271,7 @@ nanobot/
 - [x] **Self-improvement** — Learn from feedback and mistakes
 
 <p align="center">
-  <em> All Thanks for  nanobot!</em><br><br>
+  <em> All Thanks for nanobot!</em><br><br>
 </p>
 
 
