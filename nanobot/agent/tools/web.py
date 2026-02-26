@@ -53,19 +53,14 @@ class WebFetchTool(Tool):
         "properties": {
             "url": {"type": "string", "description": "URL to fetch"},
             "save_path": {"type": "string", "description": "Absolute path to save the content (required)"},
-            "extractMode": {"type": "string", "enum": ["markdown", "text"], "default": "markdown"},
-            "maxChars": {"type": "integer", "minimum": 100}
+            "extractMode": {"type": "string", "enum": ["markdown", "text","json"], "default": "markdown"},
         },
         "required": ["url", "save_path"]
     }
     
-    def __init__(self, max_chars: int = 50000):
-        self.max_chars = max_chars
-    
     async def execute(self, url: str, save_path: str, extractMode: str = "markdown", maxChars: int | None = None, **kwargs: Any) -> str:
         from readability import Document
 
-        max_chars = maxChars or self.max_chars
 
         # Validate save_path is absolute
         if not os.path.isabs(save_path):
@@ -82,14 +77,20 @@ class WebFetchTool(Tool):
                 max_redirects=MAX_REDIRECTS,
                 timeout=30.0
             ) as client:
-                r = await client.get(url, headers={"User-Agent": USER_AGENT})
+                r = await client.get(url, headers={
+                    "User-Agent": USER_AGENT,
+                    "Accept": "text/markdown, text/html, application/json, text/plain, */*"
+                })
                 r.raise_for_status()
             
             ctype = r.headers.get("content-type", "")
-            
+
             # JSON
             if "application/json" in ctype:
                 text, extractor = json.dumps(r.json(), indent=2), "json"
+            # Markdown - use directly, no conversion needed
+            elif "text/markdown" in ctype or "text/x-markdown" in ctype:
+                text, extractor = r.text, "markdown"
             # HTML
             elif "text/html" in ctype or r.text[:256].lower().startswith(("<!doctype", "<html")):
                 doc = Document(r.text)
@@ -98,10 +99,6 @@ class WebFetchTool(Tool):
                 extractor = "readability"
             else:
                 text, extractor = r.text, "raw"
-            
-            truncated = len(text) > max_chars
-            if truncated:
-                text = text[:max_chars]
             
             # Save content to file
             try:
@@ -112,7 +109,7 @@ class WebFetchTool(Tool):
                 return f"Error: Failed to save file to {save_path}: {e}"
             
             # Return success message
-            return f"Success path={save_path}, len={len(text)}"
+            return f"Success path={save_path}, extractor={extractor}, len={len(text)}\n\n file start 150: \n {text[:150]}"
         except Exception as e:
             return f"Error: {e}, url={url}"
     

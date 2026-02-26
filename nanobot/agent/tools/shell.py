@@ -41,11 +41,7 @@ class ExecTool(Tool):
     
     @property
     def description(self) -> str:
-        return "Execute a shell command and return its output. Use with caution." \
-            "- VERY IMPORTANT: You MUST avoid using search commands like `find` and `grep`. Instead use `rg` to search. " \
-            "- You MUST avoid read tools like `cat`, `head`, `tail`, and use `rg` to read files." \
-            "- If you _still_ need to run `grep` STOP. " \
-            "- ALWAYS USE ripgrep at `rg` first"
+        return "Execute a shell command and return its output. Use with caution."
     
     @property
     def parameters(self) -> dict[str, Any]:
