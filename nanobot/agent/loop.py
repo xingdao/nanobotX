@@ -86,7 +86,6 @@ class AgentLoop:
     
     def _register_default_tools(self) -> None:
         """Register the default set of tools."""
-        # File tools
         self.tools.register(ReadFileTool())
         self.tools.register(WriteFileTool())
         self.tools.register(ReadSkill())
@@ -94,65 +93,21 @@ class AgentLoop:
         self.tools.register(EditFileTool())
         self.tools.register(GlobTool())
         
-        # Shell tool
         self.tools.register(ExecTool(
             working_dir=str(self.workspace),
             timeout=self.exec_config.timeout,
             restrict_to_workspace=self.exec_config.restrict_to_workspace,
         ))
         
-        # Web tools
         self.tools.register(WebFetchTool())
         
-        # Message tool
         message_tool = MessageTool(send_callback=self.bus.publish_outbound)
         self.tools.register(message_tool)
         
-        # Spawn tool (for subagents)
         spawn_tool = SpawnTool(manager=self.subagents)
         self.tools.register(spawn_tool)
         if self.cron_service:
             self.tools.register(CronTool(self.cron_service))
-
-    def _escape_xml(self, text: str) -> str:
-        """Escape XML special characters."""
-        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-    def _build_tools_xml(self) -> str:
-        """Build XML summary of available tools."""
-        tools_defs = self.tools.get_definitions()
-        if not tools_defs:
-            return ""
-
-        lines = []
-        for tool_def in tools_defs:
-            func = tool_def.get("function", {})
-            name = self._escape_xml(func.get("name", "unknown"))
-            description = self._escape_xml(func.get("description", ""))
-            lines.append(f" <name>{name}</name>")
-            lines.append(f" <description>{description}</description>")
-        return "\n".join(lines)
-
-    def _build_skills_xml(self) -> str:
-        """Build XML summary of available skills."""
-        # Use existing skills loader
-        return self.context.skills.build_skills_summary()
-
-    def _read_memory_content(self) -> str:
-        """Read memory content from workspace."""
-        memory_path = self.workspace / "memory" / "MEMORY.md"
-        if not memory_path.exists():
-            return ""
-        return memory_path.read_text(encoding="utf-8")
-
-    def _build_plan_prompt(self) -> str | None:
-        """Build plan prompt from template."""
-        plan_template_path = self.workspace / "PLAN.md"
-        if not plan_template_path.exists():
-            return None
-
-        template = plan_template_path.read_text(encoding="utf-8")
-        return template
 
     async def run(self) -> None:
         """Run the agent loop, processing messages from the bus."""
@@ -161,13 +116,11 @@ class AgentLoop:
         
         while self._running:
             try:
-                # Wait for next message
                 msg = await asyncio.wait_for(
                     self.bus.consume_inbound(),
                     timeout=1.0
                 )
                 
-                # Process it
                 try:
                     if not msg.metadata.get('command'):
                         response = await self._process_message(msg)
@@ -178,7 +131,6 @@ class AgentLoop:
                         await self.bus.publish_outbound(response)
                 except Exception as e:
                     logger.error(f"Error processing message: {e}", exc_info=True)
-                    # Send error response
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=msg.channel,
                         chat_id=msg.chat_id,
@@ -193,20 +145,8 @@ class AgentLoop:
         logger.info("Agent loop stopping")
 
     async def _execute_tool_with_logging(self, tool_name: str, params: dict[str, Any],
-                                       session_key: str, channel: str, chat_id: str) -> str:
-        """
-        Execute a tool with logging and notification.
-
-        Args:
-            tool_name: Name of the tool to execute
-            params: Tool parameters
-            session_key: Session identifier "channel:chat_id"
-            channel: Channel identifier
-            chat_id: Chat identifier
-
-        Returns:
-            Tool execution result
-        """
+                                        session_key: str, channel: str, chat_id: str) -> str:
+        """Execute a tool with logging and notification."""
         from datetime import datetime
 
         start_time = datetime.now()
@@ -228,12 +168,25 @@ class AgentLoop:
 
         return result
 
+    def _setup_session_tools(self, channel: str, chat_id: str) -> None:
+        """Update tool contexts for session."""
+        message_tool = self.tools.get("message")
+        if isinstance(message_tool, MessageTool):
+            message_tool.set_context(channel, chat_id)
+        
+        spawn_tool = self.tools.get("spawn")
+        if isinstance(spawn_tool, SpawnTool):
+            spawn_tool.set_context(channel, chat_id)
+        
+        cron_tool = self.tools.get("cron")
+        if isinstance(cron_tool, CronTool):
+            cron_tool.set_context(channel, chat_id)
+
     async def _process_command(self, msg: InboundMessage) -> OutboundMessage | None:
-        # Handle /start command
+        """Handle command messages like /restart, /config."""
         cout_content = f"{msg.content} command not support"
         if msg.content == '/restart':
             logger.info(f"Handling /restart command for session {msg.session_key}")
-            # Rename existing session file with timestamp
             renamed = self.sessions.rename_with_timestamp(msg.session_key)
             if renamed:
                 logger.info(f"Renamed session file to {renamed}")
@@ -244,31 +197,19 @@ class AgentLoop:
                 logger.info(f"Renamed tools session file to {renamed}")
             else:
                 logger.info("No existing tools session file to rename")
-            # Clear cache and get fresh session
             self.sessions.get_or_create(msg.session_key).clear()
             cout_content = f"{msg.session_key} restart ok"
         elif msg.content == '/config':
-            config = dict(
-                model=self.model
-            )
-            cout_content=f"config:\n{config}"
+            config = dict(model=self.model)
+            cout_content = f"config:\n{config}"
         return OutboundMessage(
-                channel=msg.channel,
-                chat_id=msg.chat_id,
-                content=cout_content
-            )
+            channel=msg.channel,
+            chat_id=msg.chat_id,
+            content=cout_content
+        )
+
     async def _process_message(self, msg: InboundMessage) -> OutboundMessage | None:
-        """
-        Process a single inbound message.
-        
-        Args:
-            msg: The inbound message to process.
-        
-        Returns:
-            The response message, or None if no response needed.
-        """
-        # Handle system messages (subagent announces)
-        # The chat_id contains the original "channel:chat_id" to route back to
+        """Process a single inbound message."""
         if msg.channel == "system":
             return await self._process_system_message(msg)
         
@@ -277,220 +218,79 @@ class AgentLoop:
         if msg.content.strip().startswith('好好想想'):
             temp_max_iterations = 50
 
-        # Get or create session
         session = self.sessions.get_or_create(msg.session_key)
-        
-        # Update tool contexts
-        message_tool = self.tools.get("message")
-        if isinstance(message_tool, MessageTool):
-            message_tool.set_context(msg.channel, msg.chat_id)
-        
-        spawn_tool = self.tools.get("spawn")
-        if isinstance(spawn_tool, SpawnTool):
-            spawn_tool.set_context(msg.channel, msg.chat_id)
-        
-        cron_tool = self.tools.get("cron")
-        if isinstance(cron_tool, CronTool):
-            cron_tool.set_context(msg.channel, msg.chat_id)
+        self._setup_session_tools(msg.channel, msg.chat_id)
 
-        # Build initial messages (use get_history for LLM-formatted messages)
         messages = self.context.build_messages(
             history=session.get_history(),
             current_message=msg.content,
             media=msg.media if msg.media else None,
         )
-        # Plan step
-        tools_actions = None
-        if any([x in msg.content.split('\n', 1)[0] for x in ('plan','计划')]):
-            # Build messages using the same structure as default
-            plan_messages = self.context.build_messages(
-                history=session.get_history(),
-                current_message=f"{self._build_plan_prompt()}\n\n## 用户任务\n\n{msg.content}",
-                media=msg.media if msg.media else None,
-            )
-            # Get plan response
-            plan_response = await self.provider.chat(
-                messages=plan_messages,
-                model='deepseek/deepseek-reasoner'
-            )
-            logger.info(f"Executing plan {plan_response}")
-            
-            # Parse XML
-            try:
-                # Wrap in root tag for parsing
-                root = ET.fromstring(f"<root>{plan_response.content}</root>")
-                clarity_elem = root.find("clarity")
-                if clarity_elem is not None:
-                    clarity = clarity_elem.text.lower() if clarity_elem.text else "true"
-                    if clarity == "false":
-                        # Return unclear points directly
-                        unclear_elem = root.find("unclear_points")
-                        unclear_text = unclear_elem.text if unclear_elem is not None else "The plan is unclear."
-                        # Save to session
-                        await self.bus.publish_outbound( OutboundMessage(
-                            channel=msg.channel,
-                            chat_id=msg.chat_id,
-                            content=unclear_text
-                        ))
-                    # clarity is true, extract plan details
-                    task_elem = root.find("task")
-                    tools_actions_elem = root.find("tools_and_actions")
-                    warnings_elem = root.find("warnings")
-
-                    task = task_elem.text if task_elem is not None else ""
-                    tools_actions = tools_actions_elem.text if tools_actions_elem is not None else ""
-                    warnings = warnings_elem.text if warnings_elem is not None else ""
-
-                    # Append plan details to the user message in the main messages
-                    plan_addition = f"\n\n## Plan\n\n**Task:** {task}\n\n**Tools and Actions:** {tools_actions}\n\n**Warnings:** {warnings}"
-                    await self.bus.publish_outbound(OutboundMessage(
-                        channel=msg.channel,
-                        chat_id=msg.chat_id,
-                        content=f"plan_addition:{plan_addition}"
-                    ))
-                    # Modify the last user message in messages list
-                    if messages and messages[-1]["role"] == "user":
-                        messages[-1]["content"] = msg.content + plan_addition
-                    else:
-                        logger.warning("Cannot find user message to append plan details")
-            except ET.ParseError as e:
-                logger.warning(f"Failed to parse plan XML: {e}")
-            except Exception as e:
-                logger.warning(f"Error during plan step: {e}", exc_info=True)
+        
+        tools_actions = await self._handle_plan_step(msg, messages, session)
         if msg.content.endswith('plan'):
-            return
-        # Agent loop
+            return None
+        
         final_content = None
         summary_tools = []
         ctx = AgentContext(input=msg.content)
+        
         while ctx.loop_count < temp_max_iterations and not self.abort:
-
-            # Hooks: before_plan
             signal, hook_msg = trigger("before_plan", ctx)
             if signal == "abort":
                 final_content = hook_msg or "Aborted."
                 break
 
-            # hint and continue
             if ctx.pending_hint:
                 messages.append({"role": "user", "content": f"[Hint] {ctx.pending_hint}"})
                 ctx.pending_hint = None
 
-            # Call LLM
             response = await self.provider.chat(
                 messages=messages,
                 tools=self.tools.get_definitions(),
                 model=self.model
             )
             
-            # Handle tool calls
             if response.has_tool_calls:
-                # Add assistant message with tool calls
                 tool_call_dicts = [
                     {
                         "id": tc.id,
                         "type": "function",
-                        "function": {
-                            "name": tc.name,
-                            "arguments": json.dumps(tc.arguments)  # Must be JSON string
-                        }
+                        "function": {"name": tc.name, "arguments": json.dumps(tc.arguments)}
                     }
                     for tc in response.tool_calls
                 ]
-                messages = self.context.add_assistant_message(
-                    messages, response.content, tool_call_dicts
-                )
+                messages = self.context.add_assistant_message(messages, response.content, tool_call_dicts)
                 
-                # Execute tools
                 for tool_call in response.tool_calls:
-                    if tools_actions and (tool_call.name not in tools_actions) and (
-                        tool_call.name in [ReadFileTool.name, ]
-                    ):
-                        await self.bus.publish_outbound(OutboundMessage(
-                            channel=msg.channel,
-                            chat_id=msg.chat_id,
-                            content=f"{tool_call.name} not in allow({tools_actions}), /abort"
-                        ))
-                    ctx.action = tool_call.name
-                    ctx.params = tool_call.arguments
-
-                    # Hooks: before_act
-                    signal, hook_msg = trigger("before_act", ctx)
-                    if signal == "abort":
-                        final_content = hook_msg or "Aborted."
+                    success = await self._execute_single_tool(
+                        tool_call, messages, msg.session_key, msg.channel, msg.chat_id,
+                        ctx, tools_actions, summary_tools
+                    )
+                    if not success:
+                        final_content = "Aborted."
                         break
-                    if signal == "hint":
-                        messages = self.context.add_tool_result(
-                            messages, tool_call.id, tool_call.name,
-                            f"Skipped by hook: {hook_msg}"
-                        )
-                        continue
-
-                    args_str = json.dumps(tool_call.arguments)
-                    result = await self._execute_tool_with_logging(
-                        tool_name=tool_call.name,
-                        params=tool_call.arguments,
-                        session_key=msg.session_key,
-                        channel=msg.channel,
-                        chat_id=msg.chat_id
-                    )
-                    ico = str("√ " if not result.startswith("Error") else "× ")
-                    logger.debug(f"Executing tool({ico}): {tool_call.name} with arguments: {args_str}")
-                    summary_tools.append(
-                        ico +  str(tool_call.name) +  str(tool_call.arguments)
-                    )
-                    ctx.observation = result
-                    ctx.action_history.append({
-                        "name": tool_call.name,
-                        "params": tool_call.arguments
-                    })
-                    messages = self.context.add_tool_result(
-                        messages, tool_call.id, tool_call.name, result
-                    )
-                    trigger("after_act", ctx)
             else:
-                # No tool calls, we're done
                 final_content = response.content
                 break
 
             ctx.loop_count += 1
 
-        summary_tools = [
-            item if len(item) < 70 else item[:70]
-            for item in summary_tools
-        ]
-        # out iteration, summary
-        if self.abort or ctx.force_summary or (final_content is None and ctx.loop_count == temp_max_iterations):
-            logger.info("No final_content and out iteration, summary")
-            # 放弃缓存, 全力压缩
-            messages[0]['content'] == self.context.get_summary_context()
-            messages.append({"role": "user", "content": self.context.get_user_summary_context()})
-            response = await self.provider.chat(
-                messages=messages,
-                tools=None,
-                model=self.model
-            )
-            final_content = response.content
-            try:
-                # parse contains two root-level tags
-                root = ET.fromstring(f"<root>{final_content}</root>")
-                logger.info(f"{root.find('analysis').text}")
-                final_content = root.find('summary').text
-            except Exception as e:
-                logger.error(f'summary xml {e}', exc_info=True)
-                start_summary = final_content.find('<summary>')
-                end_summary = final_content.find('</summary>')
-                if start_summary != -1 and end_summary:
-                    final_content = final_content[start_summary:end_summary]
+        summary_content = await self._generate_summary_if_needed(
+            messages, ctx, temp_max_iterations, final_content
+        )
+        if summary_content:
+            final_content = summary_content
 
-        # Save to session
         session.add_message("user", msg.content)
         session.add_message("assistant", final_content)
         self.sessions.save(session)
         
         collapsible_content = None
         if summary_tools:
-            collapsible_content = '🔧 工具使用:\n' + '\n'.join(summary_tools)
+            collapsible_content = '🔧 工具使用:\n' + '\n'.join(
+                item if len(item) < 70 else item[:70] for item in summary_tools
+            )
         
         return OutboundMessage(
             channel=msg.channel,
@@ -498,46 +298,138 @@ class AgentLoop:
             content=final_content,
             metadata={"collapsible": collapsible_content} if collapsible_content else {}
         )
+
+    async def _handle_plan_step(self, msg: InboundMessage, messages: list, session) -> str | None:
+        """Handle plan step if message contains plan keyword."""
+        if not any(x in msg.content.split('\n', 1)[0] for x in ('plan', '计划')):
+            return None
+        
+        plan_prompt = self.context.build_plan_prompt()
+        if not plan_prompt:
+            return None
+        
+        plan_messages = self.context.build_messages(
+            history=session.get_history(),
+            current_message=f"{plan_prompt}\n\n## 用户任务\n\n{msg.content}",
+            media=msg.media if msg.media else None,
+        )
+        plan_response = await self.provider.chat(
+            messages=plan_messages,
+            model='deepseek/deepseek-reasoner'
+        )
+        logger.info(f"Executing plan {plan_response}")
+        
+        try:
+            root = ET.fromstring(f"<root>{plan_response.content}</root>")
+            clarity_elem = root.find("clarity")
+            if clarity_elem is not None and clarity_elem.text and clarity_elem.text.lower() == "false":
+                unclear_elem = root.find("unclear_points")
+                unclear_text = unclear_elem.text if unclear_elem is not None else "The plan is unclear."
+                await self.bus.publish_outbound(OutboundMessage(
+                    channel=msg.channel, chat_id=msg.chat_id, content=unclear_text
+                ))
+                return None
+            
+            task = root.findtext("task") or ""
+            tools_actions = root.findtext("tools_and_actions") or ""
+            warnings = root.findtext("warnings") or ""
+            plan_addition = f"\n\n## Plan\n\n**Task:** {task}\n\n**Tools and Actions:** {tools_actions}\n\n**Warnings:** {warnings}"
+            await self.bus.publish_outbound(OutboundMessage(
+                channel=msg.channel, chat_id=msg.chat_id, content=f"plan_addition:{plan_addition}"
+            ))
+            if messages and messages[-1]["role"] == "user":
+                messages[-1]["content"] = msg.content + plan_addition
+            return tools_actions
+        except ET.ParseError as e:
+            logger.warning(f"Failed to parse plan XML: {e}")
+        except Exception as e:
+            logger.warning(f"Error during plan step: {e}", exc_info=True)
+        
+        return None
+
+    async def _execute_single_tool(self, tool_call, messages: list, session_key: str,
+                                   channel: str, chat_id: str, ctx: AgentContext,
+                                   tools_actions: str | None, summary_tools: list) -> bool:
+        """Execute a single tool call and return True if should continue."""
+        if tools_actions and (tool_call.name not in tools_actions) and (tool_call.name in [ReadFileTool.name]):
+            await self.bus.publish_outbound(OutboundMessage(
+                channel=channel, chat_id=chat_id,
+                content=f"{tool_call.name} not in allow({tools_actions}), /abort"
+            ))
+        
+        ctx.action = tool_call.name
+        ctx.params = tool_call.arguments
+        signal, hook_msg = trigger("before_act", ctx)
+        
+        if signal == "abort":
+            return False
+        if signal == "hint":
+            messages.append({"role": "user", "content": f"[Hint] {hook_msg}"})
+            ctx.pending_hint = None
+            messages = self.context.add_tool_result(
+                messages, tool_call.id, tool_call.name, f"Skipped by hook: {hook_msg}"
+            )
+            return True
+        
+        result = await self._execute_tool_with_logging(
+            tool_call.name, tool_call.arguments, session_key, channel, chat_id
+        )
+        ico = "√ " if not result.startswith("Error") else "× "
+        logger.debug(f"Executing tool({ico}): {tool_call.name} with arguments: {json.dumps(tool_call.arguments)}")
+        summary_tools.append(ico + tool_call.name + str(tool_call.arguments))
+        
+        ctx.observation = result
+        ctx.action_history.append({"name": tool_call.name, "params": tool_call.arguments})
+        messages = self.context.add_tool_result(messages, tool_call.id, tool_call.name, result)
+        trigger("after_act", ctx)
+        return True
+
+    async def _generate_summary_if_needed(self, messages: list, ctx: AgentContext,
+                                           temp_max_iterations: int, final_content: str | None) -> str | None:
+        """Generate summary if needed (abort, force_summary, or max iterations reached)."""
+        if not (self.abort or ctx.force_summary or (final_content is None and ctx.loop_count == temp_max_iterations)):
+            return None
+        
+        logger.info("No final_content and out iteration, summary")
+        messages[0]['content'] = self.context.get_summary_context()
+        messages.append({"role": "user", "content": self.context.get_user_summary_context()})
+        response = await self.provider.chat(messages=messages, tools=None, model=self.model)
+        final_content = response.content
+        
+        try:
+            root = ET.fromstring(f"<root>{final_content}</root>")
+            logger.info(f"{root.find('analysis').text}")
+            final_content = root.find('summary').text
+        except Exception as e:
+            logger.error(f'summary xml {e}', exc_info=True)
+            start = final_content.find('<summary>')
+            end = final_content.find('</summary>')
+            if start != -1 and end != -1:
+                final_content = final_content[start:end]
+        
+        return final_content
     
     async def _process_system_message(self, msg: InboundMessage) -> OutboundMessage | None:
-        """
-        Process a system message (e.g., subagent announce).
-        
-        The chat_id field contains "original_channel:original_chat_id" to route
-        the response back to the correct destination.
-        """
+        """Process a system message (e.g., subagent announce)."""
         logger.info(f"Processing system message from {msg.sender_id}")
         
-        # Parse origin from chat_id (format: "channel:chat_id")
         if ":" in msg.chat_id:
             parts = msg.chat_id.split(":", 1)
             origin_channel = parts[0]
             origin_chat_id = parts[1]
         else:
-            # Fallback
             origin_channel = "cli"
             origin_chat_id = msg.chat_id
         
-        # Use the origin session for context
         session_key = f"{origin_channel}:{origin_chat_id}"
         session = self.sessions.get_or_create(session_key)
+        self._setup_session_tools(origin_channel, origin_chat_id)
         
-        # Update tool contexts
-        message_tool = self.tools.get("message")
-        if isinstance(message_tool, MessageTool):
-            message_tool.set_context(origin_channel, origin_chat_id)
-        
-        spawn_tool = self.tools.get("spawn")
-        if isinstance(spawn_tool, SpawnTool):
-            spawn_tool.set_context(origin_channel, origin_chat_id)
-        
-        # Build messages with the announce content
         messages = self.context.build_messages(
             history=session.get_history(),
             current_message=msg.content
         )
         
-        # Agent loop (limited for announce handling)
         iteration = 0
         final_content = None
         
@@ -555,31 +447,19 @@ class AgentLoop:
                     {
                         "id": tc.id,
                         "type": "function",
-                        "function": {
-                            "name": tc.name,
-                            "arguments": json.dumps(tc.arguments)
-                        }
+                        "function": {"name": tc.name, "arguments": json.dumps(tc.arguments)}
                     }
                     for tc in response.tool_calls
                 ]
-                messages = self.context.add_assistant_message(
-                    messages, response.content, tool_call_dicts
-                )
+                messages = self.context.add_assistant_message(messages, response.content, tool_call_dicts)
                 
                 for tool_call in response.tool_calls:
-                    args_str = json.dumps(tool_call.arguments)
                     result = await self._execute_tool_with_logging(
-                        tool_name=tool_call.name,
-                        params=tool_call.arguments,
-                        session_key=session_key,
-                        channel=origin_channel,
-                        chat_id=origin_chat_id
+                        tool_call.name, tool_call.arguments, session_key, origin_channel, origin_chat_id
                     )
-                    ico = str("√ " if not result.startswith("Error") else "× ")
-                    logger.debug(f"Executing tool({ico}): {tool_call.name} with arguments: {args_str}")
-                    messages = self.context.add_tool_result(
-                        messages, tool_call.id, tool_call.name, result
-                    )
+                    ico = "√ " if not result.startswith("Error") else "× "
+                    logger.debug(f"Executing tool({ico}): {tool_call.name}")
+                    messages = self.context.add_tool_result(messages, tool_call.id, tool_call.name, result)
             else:
                 final_content = response.content
                 break
@@ -587,7 +467,6 @@ class AgentLoop:
         if final_content is None:
             final_content = "Background task completed."
         
-        # Save to session (mark as system message in history)
         session.add_message("user", f"[System: {msg.sender_id}] {msg.content}")
         session.add_message("assistant", final_content)
         self.sessions.save(session)
@@ -599,16 +478,7 @@ class AgentLoop:
         )
     
     async def process_direct(self, content: str, session_key: str = "cli:direct") -> str:
-        """
-        Process a message directly (for CLI usage).
-        
-        Args:
-            content: The message content.
-            session_key: Session identifier.
-        
-        Returns:
-            The agent's response.
-        """
+        """Process a message directly (for CLI usage)."""
         msg = InboundMessage(
             channel="cli",
             sender_id="user",

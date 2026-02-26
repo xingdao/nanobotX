@@ -140,6 +140,14 @@ When remembering something, write to {workspace_path}/memory/MEMORY.md"""
         if file_path.exists():
             content = file_path.read_text(encoding="utf-8")
             return f"## SUMMARY\n\n{content}"
+
+    def build_plan_prompt(self) -> str | None:
+        """Build plan prompt from template."""
+        plan_template_path = self.workspace / "PLAN.md"
+        if not plan_template_path.exists():
+            return None
+        return plan_template_path.read_text(encoding="utf-8")
+
     def build_messages(
         self,
         history: list[dict[str, Any]],
