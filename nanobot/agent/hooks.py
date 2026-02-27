@@ -6,6 +6,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Callable, DefaultDict, Literal
 
+from loguru import logger
+
 HookSignal = Literal["ok", "hint", "abort"]
 
 
@@ -56,6 +58,7 @@ def trigger(name: str, ctx: AgentContext) -> tuple[HookSignal, str | None]:
         result = fn(ctx)
         if result:
             action, msg = result
+            logger.debug(f"Hook triggered: {name} -> {fn.__name__} returned {result}")
             if once:
                 ctx.hinted.add(fn.__name__)
             if action in ("abort", "hint"):
