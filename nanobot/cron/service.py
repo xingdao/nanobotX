@@ -120,8 +120,7 @@ class CronService:
                 ))
             store = CronStore(version=data.get("version", 1), jobs=jobs)
             version = data.get("version", 1)
-            load_duration = time.time() - start_time
-            logger.debug(f"Store loaded from {self.store_path}: version={version}, jobs={len(jobs)}, duration={load_duration:.3f}s")
+            
             return store, version
         except Exception as e:
             logger.warning(f"Failed to load cron store: {e}")
@@ -264,9 +263,7 @@ class CronService:
             return None
         times = [j.state.next_run_at_ms for j in self._store.jobs
                  if j.enabled and j.state.next_run_at_ms]
-        next_wake = min(times) if times else None
-        logger.debug(f"Next wake time calculation: found {len(times)} scheduled times, next wake={next_wake}")
-        return next_wake
+        return min(times) if times else None
     
     def _arm_timer(self) -> None:
         """安排下一个定时器触发（带基础心跳）。"""
@@ -327,7 +324,7 @@ class CronService:
             j for j in file_store.jobs
             if j.enabled and j.state.next_run_at_ms and now >= j.state.next_run_at_ms
         ]
-        logger.debug(f"Found {len(due_jobs)} due jobs to execute")
+        
 
         executed_jobs = False  # 记录是否有任务被执行
         for job in due_jobs:
