@@ -142,7 +142,6 @@ class HeartbeatService:
         """Execute a single heartbeat tick."""
         content = self._read_heartbeat_file()
         if not content:
-            logger.debug("Heartbeat: HEARTBEAT.md missing or empty")
             return
 
         logger.info("Heartbeat: checking for tasks...")

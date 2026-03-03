@@ -22,7 +22,6 @@ class ToolUsage:
     parameters: dict[str, Any]       # Input parameters (sanitized)
     result: str                      # Execution result (may be truncated)
     timestamp: datetime              # Execution timestamp
-    session_key: str                 # Session identifier "channel:chat_id"
     duration_ms: Optional[float] = None  # Execution duration in milliseconds
     success: bool = True             # Whether execution succeeded
     error: Optional[str] = None      # Error message if failed

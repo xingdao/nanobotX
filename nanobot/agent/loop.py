@@ -145,7 +145,7 @@ class AgentLoop:
         logger.info("Agent loop stopping")
 
     async def _execute_tool_with_logging(self, tool_name: str, params: dict[str, Any],
-                                        session_key: str, channel: str, chat_id: str) -> str:
+                                        channel: str, chat_id: str) -> str:
         """Execute a tool with logging and notification."""
         from datetime import datetime
 
@@ -159,7 +159,6 @@ class AgentLoop:
                 parameters=params,
                 result=result,
                 timestamp=start_time,
-                session_key=session_key,
                 duration_ms=round((end_time - start_time).total_seconds() * 1000, 2),
                 success=not result.startswith("Error"),
                 error=None if not result.startswith("Error") else result
@@ -372,7 +371,7 @@ class AgentLoop:
             return True
         
         result = await self._execute_tool_with_logging(
-            tool_call.name, tool_call.arguments, session_key, channel, chat_id
+            tool_call.name, tool_call.arguments, channel, chat_id
         )
         ico = "√ " if not result.startswith("Error") else "× "
         logger.debug(f"Executing tool({ico}): {tool_call.name} with arguments: {json.dumps(tool_call.arguments)}")
@@ -455,7 +454,7 @@ class AgentLoop:
                 
                 for tool_call in response.tool_calls:
                     result = await self._execute_tool_with_logging(
-                        tool_call.name, tool_call.arguments, session_key, origin_channel, origin_chat_id
+                        tool_call.name, tool_call.arguments, origin_channel, origin_chat_id
                     )
                     ico = "√ " if not result.startswith("Error") else "× "
                     logger.debug(f"Executing tool({ico}): {tool_call.name}")

@@ -53,11 +53,19 @@ class HeartbeatConfig(BaseModel):
     interval_s: int = 30 * 60  # 30 minutes
 
 
+class WebConfig(BaseModel):
+    """Web gateway configuration."""
+    enabled: bool = False
+    username: str = "admin"
+    password: str = "admin"
+
+
 class GatewayConfig(BaseModel):
     """Gateway/server configuration."""
     host: str = "0.0.0.0"
     port: int = 18790
     heartbeat: HeartbeatConfig = Field(default_factory=HeartbeatConfig)
+    web: WebConfig = Field(default_factory=WebConfig)
 
 
 class ExecToolConfig(BaseModel):

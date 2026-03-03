@@ -79,7 +79,8 @@ class WebFetchTool(Tool):
             ) as client:
                 r = await client.get(url, headers={
                     "User-Agent": USER_AGENT,
-                    "Accept": "text/markdown, text/html, application/json, text/plain, */*"
+                    "Accept": "text/markdown, text/html, application/json, text/plain, */*",
+                    "Accept-language":"zh-CN,zh;q=0.9,en;q=0.8"
                 })
                 r.raise_for_status()
             
