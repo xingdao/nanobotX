@@ -277,10 +277,14 @@ def print_report(stats_list: list[FileStats], base_path: Path) -> None:
 
 
 def main():
-    project_root = Path(__file__).parent.parent
-    nanobot_path = project_root / "nanobot"
+    project_root = Path(__file__).parent.parent.parent
+    nanobot_path = project_root
 
-    py_files = list(nanobot_path.rglob("*.py"))
+    # 排除`.`开头路径开头文件
+    py_files = [
+        f for f in nanobot_path.rglob("*.py") \
+        if not any(part.startswith('.') for part in f.parts)
+    ]
 
     print(f"分析目录: {nanobot_path}")
     print(f"找到 {len(py_files)} 个Python文件")
