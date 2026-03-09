@@ -24,6 +24,7 @@ from nanobot.agent.subagent import SubagentManager
 from nanobot.session.manager import SessionManager
 from nanobot.agent.hooks import AgentContext, trigger
 from nanobot.agent.rules import register_default_rules
+from nanobot.agent.commands import registry, CommandContext
 
 import xml.etree.ElementTree as ET
 from nanobot.config.schema import ExecToolConfig, ToolLoggingConfig
@@ -183,24 +184,37 @@ class AgentLoop:
 
     async def _process_command(self, msg: InboundMessage) -> OutboundMessage | None:
         """Handle command messages like /restart, /config."""
-        cout_content = f"{msg.content} command not support"
-        if msg.content == '/restart':
-            logger.info(f"Handling /restart command for session {msg.session_key}")
-            renamed = self.sessions.rename_with_timestamp(msg.session_key)
-            if renamed:
-                logger.info(f"Renamed session file to {renamed}")
-            else:
-                logger.info("No existing session file to rename")
-            renamed = self.tool_logger.rename_with_timestamp(msg.channel, msg.chat_id)
-            if renamed:
-                logger.info(f"Renamed tools session file to {renamed}")
-            else:
-                logger.info("No existing tools session file to rename")
-            self.sessions.get_or_create(msg.session_key).clear()
-            cout_content = f"{msg.session_key} restart ok"
-        elif msg.content == '/config':
-            config = dict(model=self.model)
-            cout_content = f"config:\n{config}"
+        session = self.sessions.get_or_create(msg.session_key)
+        
+        def set_model(new_model: str):
+            self.model = new_model
+        
+        def set_temp(new_temp: float):
+            self._temperature = new_temp
+        
+        def clear_session():
+            session.clear()
+        
+        ctx = CommandContext(
+            sessions=self.sessions,
+            tool_logger=self.tool_logger,
+            workspace=self.workspace,
+            model=self.model,
+            session_key=msg.session_key,
+            channel=msg.channel,
+            chat_id=msg.chat_id,
+            raw_content=msg.content,
+            temperature=getattr(self, '_temperature', 0.0),
+            tools=list(self.tools._tools.keys()),
+            message_count=len(session.messages),
+            created_at=session.created_at.isoformat() if hasattr(session, 'created_at') else "",
+            memory_content=self.context.memory.read_today(),
+            set_model=set_model,
+            set_temp=set_temp,
+            clear_session=clear_session,
+        )
+        cout_content = await registry.execute(msg.content, ctx)
+
         return OutboundMessage(
             channel=msg.channel,
             chat_id=msg.chat_id,
