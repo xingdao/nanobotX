@@ -23,7 +23,15 @@ def auth_required(handler):
     """Decorator to check authentication for a request handler."""
     @wraps(handler)
     async def wrapper(self, request: web.Request) -> web.Response:
-        client_ip = request.remote
+        # 1. 优先获取 Cloudflare 提供的真实 IP
+        client_ip = request.headers.get("CF-Connecting-IP")
+        # 2. 如果没有（可能未走 CF），则回退到默认远程地址
+        if not client_ip:
+            logger.info(f"[WebGateway] remote ip: {client_ip}")
+            client_ip = request.remote
+        else:
+            logger.info(f"[WebGateway] cf ip: {client_ip}")
+        
         if client_ip != self._authenticated_ip:
             auth = request.headers.get("Authorization")
             if not self._check_auth(auth):
@@ -86,7 +94,8 @@ class WebGateway:
         for key, value in kwargs.items():
             result = result.replace("{{" + key + "}}", str(value))
         return result
-
+    
+    @auth_required
     async def handle_index(self, request: web.Request) -> web.Response:
         return web.Response(
             text=self._templates["index"],
