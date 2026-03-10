@@ -165,7 +165,6 @@ class ToolLogger:
                 "parameters": truncated_params,
                 "result": result,
                 "timestamp": usage.timestamp.isoformat(),
-                "session_key": usage.session_key,
                 "duration_ms": usage.duration_ms,
                 "success": usage.success,
                 "error": usage.error,
