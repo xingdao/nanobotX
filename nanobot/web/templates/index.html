@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Nanobot Task</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        h1 { color: #333; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 5px; }
+        .submit-btn { background-color: #2196F3; color: white; border: none; }
+        textarea { width: 100%; box-sizing: border-box; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>Nanobot Task</h1>
+    <p><a href="/deploy">Deploy →</a></p>
+    <div class="section">
+        <h2>Submit Task</h2>
+        <form method="POST" action="/task">
+            <textarea name="task" rows="5" placeholder="Enter task..."></textarea><br>
+            <button type="submit" class="submit-btn">Submit</button>
+        </form>
+    </div>
+</body>
+</html>

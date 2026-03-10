@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Nanobot Deploy</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        h1 { color: #333; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 5px; }
+        .restart-btn { background-color: #4CAF50; color: white; border: none; }
+        .deploy-btn { background-color: #2196F3; color: white; border: none; }
+        input[type="file"] { margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Nanobot Deploy</h1>
+
+    <div class="section">
+        <h2>Restart</h2>
+        <p>Restart the nanobot container without applying patches.</p>
+        <form method="POST" action="/deploy/restart">
+            <button type="submit" class="restart-btn">Restart</button>
+        </form>
+    </div>
+
+    <div class="section">
+        <h2>Deploy Patch</h2>
+        <p>Upload a patch file and deploy it.</p>
+        <form method="POST" action="/deploy/apply" enctype="multipart/form-data">
+            <input type="file" name="patch" accept=".patch,.diff" required><br>
+            <button type="submit" class="deploy-btn">Deploy</button>
+        </form>
+    </div>
+</body>
+</html>
