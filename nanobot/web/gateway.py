@@ -125,12 +125,15 @@ class WebGateway:
                 )
             )
 
+            # 判断是否为命令
+            is_command = task.startswith("/")
             await self.bus.publish_inbound(
                 InboundMessage(
                     channel=self.notify_channel,
                     sender_id=self.notify_chat_id,
                     chat_id=self.notify_chat_id,
                     content=task,
+                    metadata={"command": is_command} if is_command else {}
                 )
             )
 
