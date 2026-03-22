@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Nanobot Task</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        h1 { color: #333; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 5px; }
+        .submit-btn { background-color: #2196F3; color: white; border: none; }
+        textarea { width: 100%; box-sizing: border-box; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>Nanobot Task</h1>
+    <p><a href="/deploy">Deploy →</a></p>
+    <div class="section">
+        <h2>Submit Task</h2>
+        <form method="POST" action="/task">
+            <label for="cmd-select">Quick Command:</label>
+            <select id="cmd-select" onchange="insertCommand(this.value)" style="margin-bottom: 10px; padding: 5px;">
+                <option value="">-- Select Command --</option>
+                <option value="/help">/help - Show available commands</option>
+                <option value="/restart">/restart - Restart current session</option>
+                <option value="/config">/config - Show current config</option>
+                <option value="/clear">/clear - Clear session history</option>
+                <option value="/model">/model - Show or switch model</option>
+                <option value="/temp">/temp - Show or set temperature</option>
+                <option value="/memory">/memory - Show today's memory</option>
+                <option value="/tools">/tools - List available tools</option>
+                <option value="/history">/history - Show session history info</option>
+            </select><br>
+            <textarea name="task" id="task-input" rows="5" placeholder="Enter task..."></textarea><br>
+            <button type="submit" class="submit-btn">Submit</button>
+        </form>
+    </div>
+    <script>
+        function insertCommand(cmd) {
+            if (cmd) {
+                document.getElementById('task-input').value = cmd;
+            }
+        }
+    </script>
+</body>
+</html>
